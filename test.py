@@ -11,15 +11,10 @@ pygame.display.set_caption("Simple Shooter")
 clock = pygame.time.Clock()
 
 
-# 字體設定：改用微軟正黑體 (Microsoft JhengHei)
-try:
-    # 方法 A: 直接指定系統字體名稱 (最推薦)
-    font = pygame.font.SysFont("microsoftjhenghei", 20, bold=True)
-except:
-    # 如果失敗，才用預設字體 (但預設字體無法顯示中文)
-    print("載入中文字體失敗，使用預設字體")
-    font = pygame.font.Font(None, 20)
-    
+
+# 方法 A: 直接指定系統字體名稱 (最推薦)
+font = pygame.font.SysFont("microsoftjhenghei", 20, bold=True)
+
 title_font = pygame.font.Font("font/PublicPixel.ttf", 40)
 
 background = pygame.image.load("assets/ground.png").convert()
@@ -440,7 +435,7 @@ class Enemy(pygame.sprite.Sprite):
         
         # 被子彈打到
         if pygame.sprite.spritecollide(self, bullet_group, True):
-            self.health -= 20
+            self.health -= 100
             if self.health <= 0:
                 self.kill()
 
@@ -580,9 +575,9 @@ def spawn_wave():
         spawn_pos = (random.randint(0, BG_WIDTH), random.randint(0, BG_HEIGHT))
         type = random.choice(["necromancer", "nightborne"])
         Enemy(type, spawn_pos) # Enemy 會自己加入 camera
-
+boss_enemy=None
 def reset_game():
-    global game_active, ready_to_spawn, level_over_time
+    global game_active, ready_to_spawn, level_over_time,boss_enemy
     game_active = True
     game_won=False
     player.health = 100
@@ -594,7 +589,7 @@ def reset_game():
     camera.empty()
     camera.add(player)
     boss_pos=(BG_WIDTH//2,BG_HEIGHT//2)
-    Enemy("boss",boss_pos)
+    boss_enemy=Enemy("boss",boss_pos)
     # ready_to_spawn = True
     # level_over_time = pygame.time.get_ticks()
 
@@ -611,18 +606,9 @@ while True:
                 reset_game()
 
     if game_active:
-        if len(enemy_group) == 0:
-            game_active = False
-            game_active=True
-            if ready_to_spawn:
-                level_over_time = current_time 
-                ready_to_spawn = False 
-        
         camera.update()
-        
         camera.custom_draw()
         ui.display()
-        
         # Check fireball collisions
         collided_fireballs = pygame.sprite.spritecollide(player, enemy_bullet_group, False)
         for fireball in collided_fireballs:
@@ -633,6 +619,9 @@ while True:
         if player.health <= 0:
             game_active = False
             game_won=False
+        elif boss_enemy.health<=0:
+            game_won=True
+            game_active=False
     else:
         screen.fill((0, 0, 0))
         if game_won:
