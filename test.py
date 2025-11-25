@@ -14,7 +14,7 @@ clock = pygame.time.Clock()
 
 # 方法 A: 直接指定系統字體名稱 (最推薦)
 font = pygame.font.SysFont("microsoftjhenghei", 20, bold=True)
-
+banner_font = pygame.font.SysFont("microsoftjhenghei", 40, bold=True)
 title_font = pygame.font.Font("font/PublicPixel.ttf", 40)
 
 background = pygame.image.load("assets/ground.png").convert()
@@ -329,6 +329,7 @@ class Enemy(pygame.sprite.Sprite):
         self.last_think_time = 0        # 上次思考的時間
         self.think_cooldown = 2000      # 每 2 秒思考一次 (毫秒)
         self.should_attack = False
+        self.attack_count=0
         self.rect = self.image.get_rect(center=position)
         self.pos = pygame.math.Vector2(position)
         self.vel = pygame.math.Vector2()
@@ -373,7 +374,7 @@ class Enemy(pygame.sprite.Sprite):
         self.is_thinking = False
         self.last_think_time = 0
         self.think_cooldown = 3000 # Boss 講話慢一點
-        
+        self.attack_count=0
         self.last_attack_time = 0
         
         camera.add(self)
@@ -382,7 +383,7 @@ class Enemy(pygame.sprite.Sprite):
         dist = self.pos.distance_to(player_pos)
             
             # 呼叫 Ollama (這會花 1~2 秒，但因為在線程裡所以不會卡畫面)
-        result = ask_ollama(self.health, player_hp, dist)
+        result = ask_ollama(self.health, player_hp, dist,self.attack_count)
         self.speech_text = result.get("message", "...")
         self.should_attack = result.get("should_attack", False)
         self.current_strategy = result.get("strategy", "CHASE")
@@ -408,9 +409,10 @@ class Enemy(pygame.sprite.Sprite):
                 self.direction = (player_vec - my_vec).normalize()
                 self.velocity = self.direction * -self.speed * 1.2 # 逃跑通常快一點
                     
-            elif self.current_strategy == "IDLE":
-                self.velocity = pygame.math.Vector2(0, 0)
-
+        elif self.current_strategy == "IDLE":
+            self.velocity = pygame.math.Vector2(0, 0)
+        elif self.current_strategy == "ULTIMATE":
+            self.velocity = pygame.math.Vector2(0, 0)
             # 更新位置
             self.pos += self.velocity
             self.rect.center = self.pos
@@ -453,10 +455,10 @@ class Enemy(pygame.sprite.Sprite):
         # 畫在敵人頭上
         draw_pos = self.rect.topleft - offset
        
-        # --- 新增：畫出 LLM 的對話 ---
-        text_surf = font.render(self.speech_text, True, (255, 255, 255))
-        text_rect = text_surf.get_rect(center=(self.rect.centerx - offset.x, self.rect.top - offset.y - 20))
-        surface.blit(text_surf, text_rect)
+        # # --- 新增：畫出 LLM 的對話 ---
+        # text_surf = font.render(self.speech_text, True, (255, 255, 255))
+        # text_rect = text_surf.get_rect(center=(self.rect.centerx - offset.x, self.rect.top - offset.y - 20))
+        # surface.blit(text_surf, text_rect)
 
     def update(self):
         # 1. AI 思考觸發器
@@ -482,8 +484,26 @@ class Enemy(pygame.sprite.Sprite):
                 self.last_attack_time = current_time
                 
                 # Check AI strategy for fireball type
-                if self.current_strategy == "DOUBLE FIRE BALL":
+                if self.current_strategy == "TRACKING FIRE BALL":
                     fireball = Track_Fireball(self.rect.center, player.hitbox_rect.center)
+
+                elif self.current_strategy == "ULTIMATE":
+                    # 1. 取得 Boss 中心
+                    boss_center = pygame.math.Vector2(self.rect.center)
+                    # 2. 建立基準向量 (向右)
+                    base_vec = pygame.math.Vector2(1, 0) 
+                    self.attack_count += 1
+                    # 3. 跑迴圈 0 ~ 360 度
+                    for angle in range(0, 360, 20):
+                        # 旋轉向量
+                        rotated_vec = base_vec.rotate(angle)
+                        # 算出目標點 (往外延伸 500 像素)
+                        fake_target = boss_center + rotated_vec * 500
+                        
+                        # 生成火球
+                        fireball = Fireball(self.rect.center, fake_target)
+                        camera.add(fireball)
+                        enemy_bullet_group.add(fireball)
                 else:
                     fireball = Fireball(self.rect.center, player.hitbox_rect.center)
                     
@@ -526,12 +546,15 @@ class Camera(pygame.sprite.Group):
             if isinstance(sprite, Enemy):
                 sprite.draw_health(screen, self.offset)
                 
-                # --- 新增：畫出 LLM 的對話 ---
-                text_surf = font.render(sprite.speech_text, True, (255, 255, 255))
-                text_rect = text_surf.get_rect(center=(sprite.rect.centerx - self.offset.x, sprite.rect.top - self.offset.y - 20))
-                screen.blit(text_surf, text_rect)
+                # # --- 新增：畫出 LLM 的對話 ---
+                # text_surf = font.render(sprite.speech_text, True, (255, 255, 255))
+                # text_rect = text_surf.get_rect(center=(sprite.rect.centerx - self.offset.x, sprite.rect.top - self.offset.y - 20))
+                # screen.blit(text_surf, text_rect)
 
 class UI():
+    def __init__(self):
+        self.font = pygame.font.SysFont("microsoftjhenghei", 20, bold=True)
+        self.flame_pic=pygame.image.load("assets/frame.png").convert_alpha()
     def display(self):
         # 血條
         pygame.draw.rect(screen, BLACK, (10, 10, 200, 20))
@@ -548,7 +571,57 @@ class UI():
         if not ready_to_spawn and current_time - level_over_time < game_stats["wave_cooldown"]:
             time_left = int((game_stats["wave_cooldown"] - (current_time - level_over_time)) / 1000)
             count_text = title_font.render(f"Next Wave: {time_left}", True, RED)
+            screen.blit(count_text, (WIDTH//2 - 100, 100))
+        if "boss_enemy" in globals() and boss_enemy and boss_enemy.health > 0:
+            message=boss_enemy.speech_text
+            max_text_width=WIDTH-250
+            lines=[]
+            current_line=""
+            for char in message:
+                test_line=current_line+char
+                if banner_font.size(test_line)[0]<max_text_width:
+                    current_line=test_line
+                else:
+                    lines.append(current_line)
+                    current_line=char
+            lines.append(current_line)
+            
+            max_line_width = 0
+            for line in lines:
+                w = banner_font.size(line)[0]
+                if w > max_line_width:
+                    max_line_width = w
+            padding_x=200
+            padding_y=80
+            line_height = banner_font.get_height()
+            min_width=600
+            BG_WIDTH=max(min_width,max_line_width+padding_x)
+            BG_HEIGHT=len(lines)*line_height+padding_y
+            bg_rect = pygame.Rect(0, 0, BG_WIDTH, BG_HEIGHT)
+            bg_rect.midtop = (WIDTH // 2, 80)
+    
+            if self.flame_pic:
+                scaled_pic=pygame.transform.scale(self.flame_pic,(bg_rect.width,bg_rect.height))
+                screen.blit(scaled_pic,bg_rect.topleft)
+            else:
+                pygame.draw.rect(screen,(0,0,0),bg_rect)
+            start_y = bg_rect.centery - (len(lines) * line_height) // 2
+            
+            for i, line in enumerate(lines):
+                text_surf = banner_font.render(line, True, (255, 255, 200))
+                text_rect = text_surf.get_rect()
+                # 水平置中
+                text_rect.centerx = bg_rect.centerx 
+                # 垂直排列
+                text_rect.top = start_y + i * line_height
+                screen.blit(text_surf, text_rect)
+
+
+        if not ready_to_spawn and current_time - level_over_time < game_stats["wave_cooldown"]:
+            time_left = int((game_stats["wave_cooldown"] - (current_time - level_over_time)) / 1000)
+            count_text = title_font.render(f"Next Wave: {time_left}", True, RED)
             screen.blit(count_text, (WIDTH//2 - 150, 100))
+            
 
 # --- 初始化群組 ---
 all_sprites_group = pygame.sprite.Group() 
