@@ -319,8 +319,19 @@ class Enemy(pygame.sprite.Sprite):
         super().__init__(enemy_group, all_sprites_group)
         self.name = name
         info = monster_data[self.name]
-        
-            # 這裡固定讀取 assets/enemy.png，如果你有不同圖可以改
+        self.heal_frames = []
+        heal_filenames = [
+            "assets/cry_dragon.png",
+            "assets/cry_dragon2.png",
+            "assets/cry_dragon3.png",
+            "assets/cry_dragon4.png",
+            "assets/cry_dragon5.png",
+        ]
+        for name in heal_filenames:
+                img = pygame.image.load(name).convert_alpha()
+                img = pygame.transform.rotozoom(img, 0, info["image_scale"]) 
+                self.heal_frames.append(img)
+        self.heal_frame_index = 0
         self.image = pygame.image.load("assets/enemy.png").convert_alpha()
         self.image = pygame.transform.rotozoom(self.image, 0, info["image_scale"])
         self.current_strategy = "CHASE" # 預設策略
@@ -348,12 +359,29 @@ class Enemy(pygame.sprite.Sprite):
         self.last_attack_time = 0
         
         camera.add(self)
+    def heal(self):
+        self.velocity=pygame.math.Vector2()
+        # self.pos = pygame.math.Vector2(start_pos)
+        
+        if self.health<self.max_health:
+            self.health+=1
+            if self.health>self.max_health:
+                self.health=self.max_health
+        if len(self.heal_frames) > 0:
+            self.heal_frame_index += 0.1
+            if self.heal_frame_index >= len(self.heal_frames):
+                self.heal_frame_index = 0
+            self.image = self.heal_frames[int(self.heal_frame_index)]
+            self.rect = self.image.get_rect(center=self.rect.center)
+        draw_pos = self.rect.center - camera.offset
+        radius=50+math.sin(pygame.time.get_ticks()*0.01)*5
+        pygame.draw.circle(screen,(0,255,0),draw_pos,radius,3)
     def think(self, player_pos, player_hp):
             # 計算距離
         dist = self.pos.distance_to(player_pos)
             
             # 呼叫 Ollama (這會花 1~2 秒，但因為在線程裡所以不會卡畫面)
-        result = ask_ollama(self.health, player_hp, dist)
+        result = ask_ollama(self.health, player_hp, dist,self.attack_count)
         if direction.length() > 0:
             direction = direction.normalize()
             
@@ -373,7 +401,7 @@ class Enemy(pygame.sprite.Sprite):
         self.speech_text = "我是不朽的！"
         self.is_thinking = False
         self.last_think_time = 0
-        self.think_cooldown = 3000 # Boss 講話慢一點
+        self.think_cooldown = 2000 # Boss 講話慢一點
         self.attack_count=0
         self.last_attack_time = 0
         
@@ -386,7 +414,7 @@ class Enemy(pygame.sprite.Sprite):
         result = ask_ollama(self.health, player_hp, dist,self.attack_count)
         self.speech_text = result.get("message", "...")
         self.should_attack = result.get("should_attack", False)
-        self.current_strategy = result.get("strategy", "CHASE")
+        self.current_strategy = result.get("strategy", "")
         # Debug 用：可以在終端機印出來確認有沒有收到
         print(f"AI 回應: {self.speech_text}, 策略: {self.current_strategy}")
         self.is_thinking = False # 思考結束
@@ -396,26 +424,31 @@ class Enemy(pygame.sprite.Sprite):
         dist = (player_vec - my_vec).magnitude()
             
         self.velocity = pygame.math.Vector2(0, 0) # 預設不動
-
+        original_img = monster_data[self.name]["image"]
+        current_scale = monster_data[self.name]["image_scale"]
             # 根據 LLM 決定的策略來移動 (小腦)
-        if self.current_strategy == "CHASE":
-            if dist > 0:
-                self.direction = (player_vec - my_vec).normalize()
+        if self.current_strategy=="HEAL":
+            self.heal()
+        else:
+            self.image = pygame.transform.rotozoom(original_img, 0, current_scale)
+            if self.current_strategy == "CHASE":
+                if dist > 0:
+                    self.direction = (player_vec - my_vec).normalize()
                 self.velocity = self.direction * self.speed
-                    
-        elif self.current_strategy == "FLEE":
-            if dist > 0:
+            elif self.current_strategy == "FLEE":
+                if dist > 0:
                     # 往反方向跑 (負號)
-                self.direction = (player_vec - my_vec).normalize()
-                self.velocity = self.direction * -self.speed * 1.2 # 逃跑通常快一點
-                    
-        elif self.current_strategy == "IDLE":
-            self.velocity = pygame.math.Vector2(0, 0)
-        elif self.current_strategy == "ULTIMATE":
-            self.velocity = pygame.math.Vector2(0, 0)
+                    self.direction = (player_vec - my_vec).normalize()
+                    self.velocity = self.direction * -self.speed * 1.2 # 逃跑通常快一點
+            elif self.current_strategy == "IDLE":
+                self.velocity = pygame.math.Vector2(0, 0)
+            elif self.current_strategy == "ULTIMATE":
+                self.velocity = pygame.math.Vector2(0, 0)
             # 更新位置
-            self.pos += self.velocity
-            self.rect.center = self.pos
+        
+
+        self.pos += self.velocity
+        self.rect = self.image.get_rect(center=self.pos)
     def hunt_player(self):
         player_vec = pygame.math.Vector2(player.hitbox_rect.center)
         my_vec = self.pos
@@ -472,7 +505,7 @@ class Enemy(pygame.sprite.Sprite):
             t = threading.Thread(target=self.think, args=(player.rect.center, player.health))
             t.daemon = True # 設定為守護執行緒，遊戲關閉時它會自動關閉
             t.start()
-
+        self.execute_strategy()
         self.attack_behavior()
         self.check_collisions()
 
@@ -482,11 +515,13 @@ class Enemy(pygame.sprite.Sprite):
             current_time = pygame.time.get_ticks()
             if current_time - self.last_attack_time > BOSS_ATTACK_COOLDOWN and self.should_attack:
                 self.last_attack_time = current_time
-                
+                if self.current_strategy=="HEAL":
+                    return
                 # Check AI strategy for fireball type
                 if self.current_strategy == "TRACKING FIRE BALL":
                     fireball = Track_Fireball(self.rect.center, player.hitbox_rect.center)
-
+                    camera.add(fireball)
+                    enemy_bullet_group.add(fireball)
                 elif self.current_strategy == "ULTIMATE":
                     # 1. 取得 Boss 中心
                     boss_center = pygame.math.Vector2(self.rect.center)
@@ -506,9 +541,9 @@ class Enemy(pygame.sprite.Sprite):
                         enemy_bullet_group.add(fireball)
                 else:
                     fireball = Fireball(self.rect.center, player.hitbox_rect.center)
-                    
-                camera.add(fireball)
-                enemy_bullet_group.add(fireball)
+                    camera.add(fireball)
+                    enemy_bullet_group.add(fireball)
+
 
 class Camera(pygame.sprite.Group):
     def __init__(self):

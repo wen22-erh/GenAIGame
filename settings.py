@@ -57,7 +57,7 @@ monster_data = {
         "attack_damage": 50,  # 攻擊力高
         "image": pygame.image.load("assets/image.png"),
         "speed": 0,           # [重點] 速度為 0，不會動
-        "image_scale": 2.5,   # 體型變大
+        "image_scale": 1.5,   # 體型變大
         "notice_radius": 9999,# 全圖嘲諷範圍
         "hitbox_rect": pygame.Rect(0, 0, 100, 100)
     }
