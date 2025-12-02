@@ -320,6 +320,10 @@ class Enemy(pygame.sprite.Sprite):
         self.name = name
         info = monster_data[self.name]
         self.heal_frames = []
+        #記憶
+        self.memory= []
+        self.last_player_hp=100
+        self.last_strategy="None"
         heal_filenames = [
             "assets/cry_dragon.png",
             "assets/cry_dragon2.png",
@@ -351,7 +355,7 @@ class Enemy(pygame.sprite.Sprite):
         self.notice_radius = info["notice_radius"]
         self.attack_damage = info["attack_damage"]
         # AI 相關
-        self.speech_text = "我是不朽的！"
+        self.speech_text = "我是小火龍！"
         self.is_thinking = False
         self.last_think_time = 0
         self.think_cooldown = 3000 # Boss 講話慢一點
@@ -361,7 +365,6 @@ class Enemy(pygame.sprite.Sprite):
         camera.add(self)
     def heal(self):
         self.velocity=pygame.math.Vector2()
-        # self.pos = pygame.math.Vector2(start_pos)
         
         if self.health<self.max_health:
             self.health+=1
@@ -376,47 +379,39 @@ class Enemy(pygame.sprite.Sprite):
         draw_pos = self.rect.center - camera.offset
         radius=50+math.sin(pygame.time.get_ticks()*0.01)*5
         pygame.draw.circle(screen,(0,255,0),draw_pos,radius,3)
-    def think(self, player_pos, player_hp):
-            # 計算距離
-        dist = self.pos.distance_to(player_pos)
-            
-            # 呼叫 Ollama (這會花 1~2 秒，但因為在線程裡所以不會卡畫面)
-        result = ask_ollama(self.health, player_hp, dist,self.attack_count)
-        if direction.length() > 0:
-            direction = direction.normalize()
-            
-            self.velocity = direction * FIREBALL_SPEED
-            
-            self.pos += self.velocity
-        self.rect = self.image.get_rect(center=position)
-        self.pos = pygame.math.Vector2(position)
-        self.vel = pygame.math.Vector2()
-        self.image = info["image"]
-        self.health = info["health"]
-        self.max_health = info["health"]
-        self.speed = info['speed']
-        self.notice_radius = info["notice_radius"]
-        self.attack_damage = info["attack_damage"]
-        # AI 相關
-        self.speech_text = "我是不朽的！"
-        self.is_thinking = False
-        self.last_think_time = 0
-        self.think_cooldown = 2000 # Boss 講話慢一點
-        self.attack_count=0
-        self.last_attack_time = 0
         
-        camera.add(self)
     def think(self, player_pos, player_hp):
             # 計算距離
         dist = self.pos.distance_to(player_pos)
+        if self.last_strategy is not None:
+            # 計算傷害
+            damage_dealt = self.last_player_hp - player_hp
             
+            # 生成紀錄文字
+            if damage_dealt > 0:
+                result_msg = f"造成 {damage_dealt} 點傷害 (有效)"
+            else:
+                result_msg = "被玩家躲開了 (無效)"
+            
+            log = f"上回合策略: {self.last_strategy} (距離 {int(dist)}) -> 結果: {result_msg}"
+            
+            # 存入記憶庫
+            self.memory.append(log)
+            
+            # 保持記憶庫只有最新 3 筆
+            if len(self.memory) > 3:
+                self.memory.pop(0) 
+        self.last_player_hp = player_hp   
             # 呼叫 Ollama (這會花 1~2 秒，但因為在線程裡所以不會卡畫面)
-        result = ask_ollama(self.health, player_hp, dist,self.attack_count)
-        self.speech_text = result.get("message", "...")
-        self.should_attack = result.get("should_attack", False)
-        self.current_strategy = result.get("strategy", "")
-        # Debug 用：可以在終端機印出來確認有沒有收到
-        print(f"AI 回應: {self.speech_text}, 策略: {self.current_strategy}")
+        json_response = ask_ollama(self.health, player_hp, dist,self.attack_count,self.memory)
+        self.speech_text = json_response.get("message", "...")
+        self.should_attack = json_response.get("should_attack", False)
+        self.current_strategy = json_response.get("strategy", "IDLE")
+        self.last_strategy = self.current_strategy
+        
+        # Debug 顯示 (可在終端機看到 AI 在想什麼)
+        print(f"[{self.name}] 記憶: {self.memory}")
+        print(f"[{self.name}] 決策: {self.current_strategy}")
         self.is_thinking = False # 思考結束
     def execute_strategy(self):
         player_vec = pygame.math.Vector2(player.hitbox_rect.center)
