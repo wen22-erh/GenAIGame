@@ -14,7 +14,7 @@ clock = pygame.time.Clock()
 
 # 方法 A: 直接指定系統字體名稱 (最推薦)
 font = pygame.font.SysFont("microsoftjhenghei", 20, bold=True)
-banner_font = pygame.font.SysFont("microsoftjhenghei", 40, bold=True)
+banner_font = pygame.font.SysFont("microsoftjhenghei", 32, bold=True)
 title_font = pygame.font.Font("font/PublicPixel.ttf", 40)
 
 background = pygame.image.load("assets/ground.png").convert()
@@ -28,8 +28,21 @@ game_active = True
 current_time = 0
 level_over_time = 0
 ready_to_spawn = True # 是否準備生成下一波
-
+is_in_countdown = False
+countdown_start_time = 0
+countdown_duration = 3000  
+game_review_text=""
+is_generating_review=False
 # --- 類別定義 ---
+
+#AI 戰後評估
+def fetch_review_text(memmory_list, player_won):
+    global game_review_text, is_generating_review
+    
+    from ai_brain import get_battle_review
+    review= get_battle_review(memmory_list, player_won)
+    game_review_text=review
+    is_generating_review=False
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos):
@@ -377,8 +390,6 @@ class Enemy(pygame.sprite.Sprite):
             self.image = self.heal_frames[int(self.heal_frame_index)]
             self.rect = self.image.get_rect(center=self.rect.center)
         draw_pos = self.rect.center - camera.offset
-        radius=50+math.sin(pygame.time.get_ticks()*0.01)*5
-        pygame.draw.circle(screen,(0,255,0),draw_pos,radius,3)
         
     def think(self, player_pos, player_hp):
             # 計算距離
@@ -584,7 +595,25 @@ class Camera(pygame.sprite.Group):
 class UI():
     def __init__(self):
         self.font = pygame.font.SysFont("microsoftjhenghei", 20, bold=True)
+        self.count_font=pygame.font.Font("font/PublicPixel.ttf", 50)
         self.flame_pic=pygame.image.load("assets/frame.png").convert_alpha()
+    def show_countdown(self,time_left):
+        secs=int(time_left/1000)+1
+        if secs > 0:
+            text_surf = self.count_font.render(str(secs), True, (255, 0, 0)) # 金色
+        else:
+            text_surf = self.count_font.render("GO!", True, (255, 0, 0))   # 紅色 GO!
+
+        rect = text_surf.get_rect(center=(WIDTH//2, HEIGHT//2))
+        
+        # 做一點陰影效果讓字更清楚
+        shadow_surf = self.count_font.render(str(secs) if secs > 0 else "GO!", True, (0,0,0))
+        shadow_rect = rect.copy()
+        shadow_rect.centerx += 4
+        shadow_rect.centery += 4
+        
+        screen.blit(shadow_surf, shadow_rect)
+        screen.blit(text_surf, rect)
     def display(self):
         # 血條
         pygame.draw.rect(screen, BLACK, (10, 10, 200, 20))
@@ -680,10 +709,13 @@ def spawn_wave():
         Enemy(type, spawn_pos) # Enemy 會自己加入 camera
 boss_enemy=None
 def reset_game():
+    global is_in_countdown, countdown_start_time,game_review_text,is_generating_review
     global game_active, ready_to_spawn, level_over_time,boss_enemy
     game_active = True
     game_won=False
     player.health = 100
+    game_review_text = ""
+    is_generating_review = False
     # game_stats["current_wave"] = 1
     # game_stats["enemies_killed_or_removed"] = 0
     
@@ -693,6 +725,14 @@ def reset_game():
     camera.add(player)
     boss_pos=(BG_WIDTH//2,BG_HEIGHT//2)
     boss_enemy=Enemy("boss",boss_pos)
+    is_in_countdown = True
+    countdown_start_time = pygame.time.get_ticks()
+    
+    boss_enemy.last_think_time = 0 # 確保不會被冷卻時間卡住
+    t = threading.Thread(target=boss_enemy.think, args=(player.rect.center, player.health))
+    t.daemon = True
+    t.start()
+    boss_enemy.is_thinking = True # 標記為思考中
     # ready_to_spawn = True
     # level_over_time = pygame.time.get_ticks()
 
@@ -709,22 +749,42 @@ while True:
                 reset_game()
 
     if game_active:
-        camera.update()
         camera.custom_draw()
         ui.display()
         # Check fireball collisions
-        collided_fireballs = pygame.sprite.spritecollide(player, enemy_bullet_group, False)
-        for fireball in collided_fireballs:
-            if not fireball.exploded:
-                fireball.explode()
-                player.get_damage(10)
+        if is_in_countdown:
+            # 計算經過時間
+            elapsed = current_time - countdown_start_time
+            time_left = countdown_duration - elapsed
+            
+            # 畫出倒數數字
+            ui.show_countdown(time_left)
+            
+            # 如果時間到了，結束倒數，開始遊戲
+            if time_left <= 0:
+                is_in_countdown = False
+            
+            # ★ 在倒數期間，不執行 update()，所以玩家和敵人都不會動
+            # 但因為我們在 reset_game 已經偷跑了 thread，所以 AI 其實在背景運算中
+            
+        else:
+            # --- 倒數結束，遊戲正式邏輯 ---
+            
+            camera.update() # 這裡面包含了 player.update() 和 enemy.update()
+            
+            # Check fireball collisions
+            collided_fireballs = pygame.sprite.spritecollide(player, enemy_bullet_group, False)
+            for fireball in collided_fireballs:
+                if not fireball.exploded:
+                    fireball.explode()
+                    player.get_damage(10)
 
-        if player.health <= 0:
-            game_active = False
-            game_won=False
-        elif boss_enemy.health<=0:
-            game_won=True
-            game_active=False
+            if player.health <= 0:
+                game_active = False
+                game_won=False
+            elif boss_enemy.health<=0:
+                game_won=True
+                game_active=False
     else:
         screen.fill((0, 0, 0))
         if game_won:
@@ -732,11 +792,28 @@ while True:
             hint = font.render("Press P to Restart", True, WHITE)
             screen.blit(txt, (WIDTH//2 - 100, HEIGHT//2 - 50))
             screen.blit(hint, (WIDTH//2 - 120, HEIGHT//2 + 20))
+            if not is_generating_review and game_review_text=="":
+                is_generating_review=True
+                t=threading.Thread(target=fetch_review_text,args=(boss_enemy.memory,game_won))
+                t.daemon=True
+                t.start()
+                
+            if is_generating_review:
+                review_surf=font.render("火龍正在撰寫與你的戰鬥回顧...",True,WHITE)
+                # screen.blit(review_surf,(WIDTH//2 - 150, HEIGHT//2 + 80))
+            else:
+                review_surf=banner_font.render(f"Boss:「{game_review_text}」",True,WHITE)
+            
+            review_rect=review_surf.get_rect(center=(WIDTH//2, HEIGHT//2 + 120))
+            screen.blit(review_surf,review_rect)
+            
+            # hint = font.render("Press P to Restart", True, WHITE)
+            # screen.blit(hint, (WIDTH//2 - 120, HEIGHT//2 + 60))
         else:
             txt = title_font.render("GAME OVER", True, RED)
-        hint = font.render("Press P to Restart", True, WHITE)
-        screen.blit(txt, (WIDTH//2 - 150, HEIGHT//2 - 50))
-        screen.blit(hint, (WIDTH//2 - 120, HEIGHT//2 + 20))
+            hint = font.render("Press P to Restart", True, WHITE)
+            screen.blit(txt, (WIDTH//2 - 150, HEIGHT//2 - 50))
+            screen.blit(hint, (WIDTH//2 - 120, HEIGHT//2 + 20))
 
     pygame.display.update()
     clock.tick(FPS)

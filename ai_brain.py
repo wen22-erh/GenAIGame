@@ -1,7 +1,40 @@
 import requests
 import json
 import threading
-
+def get_battle_review(memmory_list, player_won):
+    url = "http://localhost:11434/api/generate"
+    if not memmory_list:
+        memory_text="無趣的戰鬥"
+    else:
+        memory_text="\n".join(memmory_list)
+    if player_won:
+        outcome="結局：玩家獲勝，你戰敗了"
+        attitude_instruction = "你輸了！雖然你極度不甘心，覺得這是不可能的，但你必須承認眼前這個人類確實擊敗了你。『必須承認自己輸了』的事實。"
+    else:
+        outcome="結局：玩家死亡，你獲勝了"
+        attitude_instruction = "你贏了！看著倒下的人類，盡情展現你的傲慢與嘲諷吧。告訴他挑戰龍族是多麼愚蠢的行為。"
+    prompt = f"""
+    你是在遊戲裡的憤怒火龍boss。
+    戰鬥已經結束 結果是{outcome}。
+    戰鬥過程記錄:{memory_text}
+    你的發言指導:{attitude_instruction}
+    請根據紀錄，用*繁體中文*評論對手。(30字以內)
+    如果是你贏了，嘲笑他（例如提到他某次攻擊沒中）。
+    如果是你輸了，不甘心地稱讚他。
+    
+    直接給出評論句子即可，不要 JSON。
+    """
+    data = {
+        "model": "qwen2.5:7b",  # 或是你電腦跑得動的模型，如 mistral, qwen2.5:7b
+        "prompt": prompt,   
+        "stream": False
+    }
+    try:
+        response = requests.post(url, json=data)
+        result = response.json()['response']
+        return result.strip()
+    except :
+        return "這戰鬥不值一提"
 def ask_ollama(enemy_hp, player_hp, distance,attack_count,memory_list):
     url = "http://localhost:11434/api/generate"
     if not memory_list:
@@ -38,7 +71,7 @@ def ask_ollama(enemy_hp, player_hp, distance,attack_count,memory_list):
         danger_level = "安全"
 
     prompt = f"""
-    你是在扮演遊戲裡的火龍boss。
+    你是在遊戲裡的憤怒火龍boss，可以說一些有關於火焰的台詞。
     角色人設:(
     你原先高傲自大，看不起人類。你認為自己是高等生物。
     你有補血手段，在血量第一次低於50%要直接使用補血手段。
