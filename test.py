@@ -357,18 +357,16 @@ class Enemy(pygame.sprite.Sprite):
         ]
         
         
-        # 檢查第一張圖是否存在
-        if os.path.exists(blow_filenames[0]):
-            for name in blow_filenames:
-                img = pygame.image.load(name).convert_alpha()
-                img = pygame.transform.rotozoom(img, 0, info["image_scale"])
-                self.attack_frames.append(img)
+        for name in blow_filenames:
+            img = pygame.image.load(name).convert_alpha()
+            img = pygame.transform.rotozoom(img, 0, info["image_scale"])
+            self.attack_frames.append(img)
              
 
         for name in heal_filenames:
-                img = pygame.image.load(name).convert_alpha()
-                img = pygame.transform.rotozoom(img, 0, info["image_scale"]) 
-                self.heal_frames.append(img)
+            img = pygame.image.load(name).convert_alpha()
+            img = pygame.transform.rotozoom(img, 0, info["image_scale"]) 
+            self.heal_frames.append(img)
         self.heal_frame_index = 0
         self.image = pygame.image.load("assets/enemy.png").convert_alpha()
         self.image = pygame.transform.rotozoom(self.image, 0, info["image_scale"])
