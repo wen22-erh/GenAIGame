@@ -344,6 +344,27 @@ class Enemy(pygame.sprite.Sprite):
             "assets/cry_dragon4.png",
             "assets/cry_dragon5.png",
         ]
+        self.is_attacking = False       # 是否正在播放攻擊動畫
+        self.attack_frame_index = 0     # 動畫播放進度
+        self.attack_frames = []         # 存放攻擊圖片的 list
+        
+        blow_filenames = [
+            "assets/blowf1.png",
+            "assets/blowf2.png",
+            "assets/blowf3.png",
+            "assets/blowf4.png",
+            "assets/blowf5.png",
+        ]
+        
+        
+        # 檢查第一張圖是否存在
+        if os.path.exists(blow_filenames[0]):
+            for name in blow_filenames:
+                img = pygame.image.load(name).convert_alpha()
+                img = pygame.transform.rotozoom(img, 0, info["image_scale"])
+                self.attack_frames.append(img)
+             
+
         for name in heal_filenames:
                 img = pygame.image.load(name).convert_alpha()
                 img = pygame.transform.rotozoom(img, 0, info["image_scale"]) 
@@ -376,6 +397,24 @@ class Enemy(pygame.sprite.Sprite):
         self.last_attack_time = 0
         
         camera.add(self)
+    # test.py -> Enemy 類別內
+
+    def play_attack_anim(self):
+        # 播放速度 (數字越小越慢)
+        self.attack_frame_index += 0.1
+        
+        if self.attack_frame_index >= len(self.attack_frames):
+            # 動畫播完了！
+            self.is_attacking = False 
+            self.attack_frame_index = 0
+            # ★ 關鍵：播完後，要確保圖片變回原本的樣子，不然會卡在最後一張
+            original_img = monster_data[self.name]["image"]
+            self.image = pygame.transform.rotozoom(original_img, 0, monster_data[self.name]["image_scale"])
+        else:
+            # 還在播，換下一張圖
+            self.image = self.attack_frames[int(self.attack_frame_index)]
+            # 重新校正中心點 (因為噴火圖可能比原本大)
+            self.rect = self.image.get_rect(center=self.rect.center)
     def heal(self):
         self.velocity=pygame.math.Vector2()
         
@@ -435,6 +474,8 @@ class Enemy(pygame.sprite.Sprite):
             # 根據 LLM 決定的策略來移動 (小腦)
         if self.current_strategy=="HEAL":
             self.heal()
+        elif self.is_attacking:
+            self.play_attack_anim()
         else:
             self.image = pygame.transform.rotozoom(original_img, 0, current_scale)
             if self.current_strategy == "CHASE":
@@ -454,7 +495,8 @@ class Enemy(pygame.sprite.Sprite):
         
 
         self.pos += self.velocity
-        self.rect = self.image.get_rect(center=self.pos)
+        self.rect.center = self.pos
+        self.rect = self.image.get_rect(center=self.pos) # 確保 hitbox 跟隨
     def hunt_player(self):
         player_vec = pygame.math.Vector2(player.hitbox_rect.center)
         my_vec = self.pos
@@ -523,6 +565,8 @@ class Enemy(pygame.sprite.Sprite):
                 self.last_attack_time = current_time
                 if self.current_strategy=="HEAL":
                     return
+                self.is_attacking = True 
+                self.last_attack_time = current_time
                 # Check AI strategy for fireball type
                 if self.current_strategy == "TRACKING FIRE BALL":
                     fireball = Track_Fireball(self.rect.center, player.hitbox_rect.center)
