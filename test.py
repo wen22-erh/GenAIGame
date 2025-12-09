@@ -349,10 +349,10 @@ class Enemy(pygame.sprite.Sprite):
         self.attack_frames = []         # 存放攻擊圖片的 list
         
         blow_filenames = [
-            "assets/blowf1.png",
-            "assets/blowf2.png",
-            "assets/blowf3.png",
-            "assets/blowf4.png",
+            "assets/blowr1.png",
+            "assets/blowr2.png",
+            "assets/blowr3.png",
+            "assets/blowr4.png",
             "assets/blowf5.png",
         ]
         
