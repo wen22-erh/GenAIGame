@@ -46,7 +46,21 @@ def fetch_review_text(memmory_list, player_won):
     review= get_battle_review(memmory_list, player_won)
     game_review_text=review
     is_generating_review=False
+class FloatingText(pygame.sprite.Sprite):
+    def __init__(self, pos, text, color=(255, 255, 255)):
+        super().__init__(camera) # 加入 camera 群組，這樣才會被畫出來
+        self.font = pygame.font.SysFont("impact", 30) # 用粗一點的字體
+        self.image = self.font.render(text, True, color)
+        self.rect = self.image.get_rect(center=pos)
+        self.vel_y = -3 # 往上飄的速度
+        self.timer = 0
+        self.lifetime = 40 # 存在 40 幀 (約 0.6 秒)
 
+    def update(self):
+        self.rect.y += self.vel_y
+        self.timer += 1
+        if self.timer >= self.lifetime:
+            self.kill() # 時間到就消失
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos):
         super().__init__()
@@ -101,6 +115,8 @@ class Player(pygame.sprite.Sprite):
             bullet_group.add(self.bullet)
 
     def get_damage(self, amount):
+        FloatingText(self.rect.midtop, f"-{amount}", (255, 50, 50)) 
+        camera.add_shake(5) # 被打到時稍微震動
         self.health -= amount
         if self.health <= 0:
             self.health = 0
@@ -209,6 +225,7 @@ class Fireball(pygame.sprite.Sprite):
             self.frames = self.explosion_frames
             self.frame_index = 0
             self.animation_speed = 0.2
+            camera.add_shake(15)
 
     def animate(self):
         self.frame_index += self.animation_speed
@@ -517,6 +534,7 @@ class Enemy(pygame.sprite.Sprite):
         # 被子彈打到
         if pygame.sprite.spritecollide(self, bullet_group, True):
             self.health -= PLAYER_DAMAGE
+            FloatingText(self.rect.midtop, "-100", (255, 255, 255))
             if self.health <= 0:
                 self.kill()
 
@@ -598,7 +616,9 @@ class Camera(pygame.sprite.Group):
         super().__init__()
         self.offset = pygame.math.Vector2()
         self.floor_rect = background.get_rect(topleft=(0,0))
-
+        self.shake_strength = 0
+    def add_shake(self, strength):
+        self.shake_strength = max(self.shake_strength, strength)
     def custom_draw(self):
         target_x= player.rect.centerx - WIDTH // 2
         target_y= player.rect.centery - HEIGHT // 2
@@ -610,9 +630,16 @@ class Camera(pygame.sprite.Group):
             target_y=0
         if target_y>BG_HEIGHT - HEIGHT:
             target_y=BG_HEIGHT - HEIGHT
+        shake_offset_x = 0
+        shake_offset_y = 0
+        if self.shake_strength > 0:
+            shake_offset_x = random.randint(-int(self.shake_strength), int(self.shake_strength))
+            shake_offset_y = random.randint(-int(self.shake_strength), int(self.shake_strength))
+            self.shake_strength *=0.9  # 漸漸減弱震動效果
+            if self.shake_strength < 1: self.shake_strength = 0
         
-        self.offset.x = target_x
-        self.offset.y = target_y
+        self.offset.x = target_x+ shake_offset_x
+        self.offset.y = target_y+ shake_offset_y
 
         # 畫背景
         floor_offset = self.floor_rect.topleft - self.offset

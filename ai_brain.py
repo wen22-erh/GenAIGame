@@ -4,19 +4,23 @@ import threading
 def get_battle_review(memmory_list, player_won):
     url = "http://localhost:11434/api/generate"
     if not memmory_list:
-        memory_text="無趣的戰鬥"
+        memory_text="戰鬥瞬間結束 (無紀錄)"
     else:
         memory_text="\n".join(memmory_list)
     if player_won:
-        outcome="結局：玩家獲勝，你戰敗了"
-        attitude_instruction = "你輸了！雖然你極度不甘心，覺得這是不可能的，但你必須承認眼前這個人類確實擊敗了你。『必須承認自己輸了』的事實。"
+        outcome="戰鬥結束：你(火龍) 被 玩家 擊敗了！"
+        attitude_instruction = """
+        現在的狀況：你輸了！徹底輸了！
+        你的心情：你極度不甘心，覺得這是不可能的，但事實擺在眼前。
+        你的任務：用繁體中文寫一句「敗者的遺言」。你可以找藉口(例如: 我大意了)，誇獎玩家做得好的地方，但必須承認自己輸了。
+        禁止事項：絕對不能說自己贏了。"""
     else:
-        outcome="結局：玩家死亡，你獲勝了"
+        outcome="戰鬥結束：你(火龍) 殺死了 玩家！"
         attitude_instruction = "你贏了！看著倒下的人類，盡情展現你的傲慢與嘲諷吧。告訴他挑戰龍族是多麼愚蠢的行為。"
     prompt = f"""
     你是在遊戲裡的憤怒火龍boss。
     戰鬥已經結束 結果是{outcome}。
-    戰鬥過程記錄:{memory_text}
+    你的戰鬥行動紀錄(以下是你在戰鬥中做過的事，不是玩家做的):{memory_text}
     你的發言指導:{attitude_instruction}
     請根據紀錄，用*繁體中文*評論對手。(30字以內)
     如果是你贏了，嘲笑他（例如提到他某次攻擊沒中）。
