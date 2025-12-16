@@ -1,6 +1,7 @@
 import requests
 import json
 import threading
+from settings import * 
 def get_battle_review(memmory_list, player_won):
     url = "http://localhost:11434/api/generate"
     if not memmory_list:
@@ -29,7 +30,7 @@ def get_battle_review(memmory_list, player_won):
     直接給出評論句子即可，不要 JSON。
     """
     data = {
-        "model": "qwen2.5:7b",  # 或是你電腦跑得動的模型，如 mistral, qwen2.5:7b
+        "model": MODEL,
         "prompt": prompt,   
         "stream": False
     }
@@ -53,7 +54,7 @@ def ask_ollama(enemy_hp, player_hp, distance,attack_count,memory_list):
     - "FIRE BALL": 普通火球。剛開始用來試探對手的招式，所使用的攻擊手段。
     - "ATTACK": 近身肉搏。只有當(玩家)靠得太近。
     - "IDLE": 待機。當你覺得游刃有餘，或者想觀察對手時使用，若是你一陣子沒扣血也可以使用，請盡量不使用此技能。
-    - "HEAL": 恢復血量。當你的血量減少時可以使用。
+    - "HEAL": 恢復血量。當你的血量低下時一定要使用。
     """
     else:
         skills_description = """
@@ -75,7 +76,7 @@ def ask_ollama(enemy_hp, player_hp, distance,attack_count,memory_list):
         danger_level = "安全"
 
     prompt = f"""
-    你是在遊戲裡的憤怒火龍boss，可以說一些有關於火焰的台詞。
+    你是在遊戲裡的憤怒火龍boss，可以說一些有關於火焰的台詞，或是有關於火龍對戰時會說的話。
     角色人設:(
     你原先高傲自大，看不起人類。你認為自己是高等生物。
     你有補血手段，在血量第一次低於50%要直接使用補血手段。
@@ -104,9 +105,9 @@ def ask_ollama(enemy_hp, player_hp, distance,attack_count,memory_list):
     }}
     """
     data = {
-        "model": "qwen2.5:7b",  # 或是你電腦跑得動的模型，如 mistral, qwen2.5:7b
+        "model": MODEL,
         "prompt": prompt,
-        "format": "json",   # 強制 Ollama 輸出 JSON
+        "format": "json",  
         "stream": False
     }
     try:
@@ -115,4 +116,4 @@ def ask_ollama(enemy_hp, player_hp, distance,attack_count,memory_list):
         return result
     except Exception as e:
         print(f"LLM Error: {e}")
-        return {"strategy": "IDLE", "should_attack": False, "message": "..."} # 發生錯誤時的預設值
+        return {"strategy": "IDLE", "should_attack": False, "message": "..."} 

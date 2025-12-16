@@ -437,7 +437,7 @@ class Enemy(pygame.sprite.Sprite):
         self.velocity=pygame.math.Vector2()
         
         if self.health<self.max_health:
-            self.health+=1
+            self.health+=HEALING_AMOUNT
             if self.health>self.max_health:
                 self.health=self.max_health
         if len(self.heal_frames) > 0:

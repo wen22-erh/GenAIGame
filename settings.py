@@ -26,12 +26,14 @@ GUN_OFFSET_X=50
 GUN_OFFSET_Y=50
 #enemy settings
 ENEMY_SPEED=3
+HEALING_AMOUNT=5
 # boss settings
 FIREBALL_COUNT=2
 FIREBALL_SPEED = 6
 FIREBALL_LIFETIME = 3000
 BOSS_ATTACK_COOLDOWN = 2000
-
+#model
+MODEL="qwen2.5:7b"
 def extract_number(filename):
     return int(filename.split(".")[0])
 
