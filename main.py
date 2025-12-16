@@ -485,15 +485,12 @@ class Enemy(pygame.sprite.Sprite):
                 self.velocity = self.direction * self.speed
             elif self.current_strategy == "FLEE":
                 if dist > 0:
-                    # 往反方向跑 (負號)
                     self.direction = (player_vec - my_vec).normalize()
-                    self.velocity = self.direction * -self.speed * 1.2 # 逃跑通常快一點
+                    self.velocity = self.direction * -self.speed * 1.2 
             elif self.current_strategy == "IDLE":
                 self.velocity = pygame.math.Vector2(0, 0)
             elif self.current_strategy == "ULTIMATE":
                 self.velocity = pygame.math.Vector2(0, 0)
-            # 更新位置
-        
 
         self.pos += self.velocity
         self.rect.center = self.pos
