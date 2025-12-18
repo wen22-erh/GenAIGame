@@ -38,7 +38,12 @@ countdown_duration = 3000
 game_review_text=""
 is_generating_review=False
 # --- 類別定義 ---
-
+def fetch_review_task(memory_list, player_won):
+    global game_review_text, is_generating_review
+    # 這裡會呼叫 ai_brain 的函式，並根據 player_won (True/False) 給出不同評論
+    review = get_battle_review(memory_list, player_won)
+    game_review_text = review
+    is_generating_review = False
 #AI 戰後評估
 def fetch_review_text(memmory_list, player_won):
     global game_review_text, is_generating_review
@@ -898,31 +903,32 @@ while True:
         screen.blit(overlay, (0,0))
         if game_won:
             txt = title_font.render("YOU WIN!", True, GREEN)
-            hint = font.render("Press P to Restart", True, WHITE)
-            screen.blit(txt, (WIDTH//2 - 100, HEIGHT//2 - 50))
-            screen.blit(hint, (WIDTH//2 - 100 ,HEIGHT//2 + 20))
-            if not is_generating_review and game_review_text=="":
-                is_generating_review=True
-                t=threading.Thread(target=fetch_review_text,args=(boss_enemy.memory,game_won))
-                t.daemon=True
-                t.start()
-                
-            if is_generating_review:
-                review_surf=font.render("火龍正在撰寫與你的戰鬥回顧...",True,WHITE)
-                # screen.blit(review_surf,(WIDTH//2 - 150, HEIGHT//2 + 80))
-            else:
-                review_surf=banner_font.render(f"Boss:「{game_review_text}」",True,WHITE)
-            
-            review_rect=review_surf.get_rect(center=(WIDTH//2, HEIGHT//2 + 120))
-            screen.blit(review_surf,review_rect)
-            
-            # hint = font.render("Press P to Restart", True, WHITE)
-            # screen.blit(hint, (WIDTH//2 - 120, HEIGHT//2 + 60))
         else:
             txt = title_font.render("GAME OVER", True, RED)
-            hint = font.render("Press P to Restart", True, WHITE)
-            screen.blit(txt, (WIDTH//2 - 150, HEIGHT//2 - 50))
-            screen.blit(hint, (WIDTH//2 - 150,HEIGHT//2 + 20))
+        screen.blit(txt, txt.get_rect(center=(WIDTH//2, HEIGHT//2 - 100)))
+        
+        if 'boss_enemy' in globals() and boss_enemy:
+            # 1. 檢查是否需要開始生成
+            if not is_generating_review and game_review_text == "":
+                is_generating_review = True
+                # 注意：這裡傳入的 game_won 是全域變數，正確反映了輸贏
+                t = threading.Thread(target=fetch_review_task, args=(boss_enemy.memory, game_won))
+                t.daemon = True
+                t.start()
+                
+            # 2. 顯示生成中或結果
+            if is_generating_review:
+                review_surf = font.render("Boss 正在撰寫講評...", True, WHITE)
+                # 讓它顯示在畫面中間偏下
+                r_rect = review_surf.get_rect(center=(WIDTH//2, HEIGHT//2 + 50))
+                screen.blit(review_surf, r_rect)
+            else:
+                # 顯示生成的結果 (使用 banner_font 讓字大一點)
+                review_surf = banner_font.render(f"Boss:「{game_review_text}」", True, YELLOW)
+                r_rect = review_surf.get_rect(center=(WIDTH//2, HEIGHT//2 + 50))
+                screen.blit(review_surf, r_rect)
 
+        hint = font.render("Press P to Restart", True, WHITE)
+        screen.blit(hint, hint.get_rect(center=(WIDTH//2, HEIGHT//2 + 150)))
     pygame.display.update()
     clock.tick(FPS)
