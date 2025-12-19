@@ -17,7 +17,12 @@ def get_battle_review(memmory_list, player_won):
         禁止事項：絕對不能說自己贏了。"""
     else:
         outcome="戰鬥結束：你(火龍) 殺死了 玩家！"
-        attitude_instruction = "你贏了！看著倒下的人類，盡情展現你的傲慢與嘲諷吧。告訴他挑戰龍族是多麼愚蠢的行為。"
+        attitude_instruction = """
+        你贏了！看著倒下的人類，盡情展現你的傲慢與嘲諷吧。告訴他挑戰龍族是多麼愚蠢的行為。
+        你的心情：你極度自豪，覺得自己無敵且高高在上。
+        你的任務：用繁體中文寫一句「贏家的嘲諷」。你可以找藉口，盡情嘲諷玩家是多麼渺小。
+        禁止事項：絕對不能說自己輸了。
+        """
     prompt = f"""
     你是在遊戲裡的憤怒火龍boss。
     戰鬥已經結束 結果是{outcome}。
@@ -42,28 +47,31 @@ def get_battle_review(memmory_list, player_won):
         return "這戰鬥不值一提"
 def ask_ollama(enemy_hp, player_hp, distance,attack_count,memory_list):
     url = "http://localhost:11434/api/generate"
+    allow_heal = enemy_hp < 1500 
+    
+    heal_desc = '- "HEAL": 恢復血量。當你的血量低下時一定要馬上使用。\n' if allow_heal else ''
     if not memory_list:
         memory_text="無"
     else:
         memory_text="\n".join(memory_list)    
     if attack_count<2:
-        skills_description = """
+        skills_description = f"""
     可用招式清單 (請從中選擇技能):
-    - "ULTIMATE": 終極毀滅你的最強絕招，在你快要死亡時一定要施放。威力巨大但消耗極大體力。是你被逼入絕境、接近死亡時才會使用。
+    - "ULTIMATE": 終極毀滅你的最強絕招，在你血量低於400時一定要施放。威力巨大但消耗極大體力。接近死亡時一定要使用。
     - "TRACKING FIRE BALL": 追蹤火球。第二耗費體力的招式，帶有強烈殺意。當你憤怒或想確保命中時使用。
     - "FIRE BALL": 普通火球。剛開始用來試探對手的招式，所使用的攻擊手段。
     - "ATTACK": 近身肉搏。只有當(玩家)靠得太近。
     - "IDLE": 待機。當你覺得游刃有餘，或者想觀察對手時使用，若是你一陣子沒扣血也可以使用，請盡量不使用此技能。
-    - "HEAL": 恢復血量。當你的血量低下時一定要使用。
+    {heal_desc}
     """
     else:
-        skills_description = """
+        skills_description = f"""
     可用招式清單 (請從中選擇技能):
     - "TRACKING FIRE BALL": 追蹤火球。帶有強烈殺意的招式。當你憤怒或想確保命中時使用。
     - "FIRE BALL": 普通火球。用來打發時間或試探對手。
     - "ATTACK": 近身肉搏。只有當(玩家)靠得太近。
     - "IDLE": 待機。當你覺得游刃有餘，或者想觀察對手時使用，若是你一陣子沒受到玩家攻擊也可以使用。
-    - "HEAL": 恢復血量。當你的血量低下時一定要馬上使用。
+    {heal_desc}
     """
     danger_level="安全"
     if enemy_hp < 200:
@@ -101,7 +109,7 @@ def ask_ollama(enemy_hp, player_hp, distance,attack_count,memory_list):
     {{
         "strategy": "從可用招式清單中選一個",
         "should_attack": true 或 false,
-        "message": "繁體中文台詞(10字內，展現你的個性)"
+        "message": "你只能用繁體中文台詞(10字內，展現你的個性)"
     }}
     """
     data = {
