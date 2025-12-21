@@ -604,10 +604,11 @@ class Enemy(pygame.sprite.Sprite):
                         # 旋轉向量
                         rotated_vec = base_vec.rotate(angle)
                         # 算出目標點 (往外延伸 500 像素)
-                        fake_target = boss_center + rotated_vec * 500
+                        fake_target = pygame.math.Vector2(self.rect.center) + rotated_vec * 1000
                         
                         # 生成火球
                         fireball = Fireball(self.rect.center, fake_target)
+                        fireball.velocity = rotated_vec * 10
                         camera.add(fireball)
                         enemy_bullet_group.add(fireball)
                 else:
@@ -651,7 +652,7 @@ class Camera(pygame.sprite.Group):
         screen.blit(background, floor_offset)
 
         # 畫所有 Sprite
-        for sprite in self.sprites():
+        for sprite in sorted(self.sprites(), key=lambda s: s.rect.centery):
             offset_pos = sprite.rect.topleft - self.offset
             screen.blit(sprite.image, offset_pos)
             

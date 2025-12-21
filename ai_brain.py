@@ -57,7 +57,7 @@ def ask_ollama(enemy_hp, player_hp, distance,attack_count,memory_list):
     if attack_count<2:
         skills_description = f"""
     可用招式清單 (請從中選擇技能):
-    - "ULTIMATE": 終極毀滅你的最強絕招，在你血量低於400時一定要施放。威力巨大但消耗極大體力。接近死亡時一定要使用。
+    - "ULTIMATE": 終極毀滅你的最強絕招，在你血量低時一定要施放。威力巨大但消耗極大體力。接近死亡時一定要使用。
     - "TRACKING FIRE BALL": 追蹤火球。第二耗費體力的招式，帶有強烈殺意。當你憤怒或想確保命中時使用。
     - "FIRE BALL": 普通火球。剛開始用來試探對手的招式，所使用的攻擊手段。
     - "ATTACK": 近身肉搏。只有當(玩家)靠得太近。
