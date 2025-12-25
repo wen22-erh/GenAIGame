@@ -1,7 +1,7 @@
 import pygame
 import os
-WIDTH=1600
-HEIGHT=900
+WIDTH=1900
+HEIGHT=1000
 FPS=60
 TILESIZE = 32
 # colours

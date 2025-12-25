@@ -61,14 +61,14 @@ def ask_ollama(enemy_hp, player_hp, distance,attack_count,memory_list):
     - "TRACKING FIRE BALL": 追蹤火球。第二耗費體力的招式，帶有強烈殺意。當你憤怒或想確保命中時使用。
     - "FIRE BALL": 普通火球。剛開始用來試探對手的招式，所使用的攻擊手段。
     - "ATTACK": 近身肉搏。只有當(玩家)靠得太近。
-    - "IDLE": 待機。當你覺得游刃有餘，或者想觀察對手時使用，若是你一陣子沒扣血也可以使用，請盡量不使用此技能。
+    - "IDLE": (別用)待機。當你覺得游刃有餘，或者想觀察對手時使用，若是你一陣子沒扣血也可以使用，請盡量不使用此技能。
     {heal_desc}
     """
     else:
         skills_description = f"""
     可用招式清單 (請從中選擇技能):
-    - "TRACKING FIRE BALL": 追蹤火球。帶有強烈殺意的招式。當你憤怒或想確保命中時使用。
-    - "FIRE BALL": 普通火球。用來打發時間或試探對手。
+    - "TRACKING FIRE BALL": 追蹤火球。
+    - "FIRE BALL": 普通火球。
     - "ATTACK": 近身肉搏。只有當(玩家)靠得太近。
     - "IDLE": 待機。當你覺得游刃有餘，或者想觀察對手時使用，若是你一陣子沒受到玩家攻擊也可以使用。
     {heal_desc}
