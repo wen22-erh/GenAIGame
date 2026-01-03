@@ -8,7 +8,7 @@
 
 看 AI Boss 如何根據血量與距離動態改變戰術，並生成即時對話！
 
-![Gameplay Demo](assets/dragon動畫2.gif)
+![Gameplay Demo](https://github.com/你的帳號/專案名稱/raw/main/assets/dragon動畫2.gif)
 
 ---
 
